@@ -10,7 +10,7 @@ Este repositório contém a **API de Produtos** do sistema **Força de Vendas**,
 - **Express** – Framework web rápido e flexível para Node.js.
 - **TypeScript** – Superconjunto do JavaScript que adiciona tipagem estática.
 - **Prisma ORM** – ORM moderno para acesso a banco de dados.
-- **MySQL/MariaDB** – Sistema de gerenciamento de banco de dados relacional.
+- **MySQL** – Sistema de gerenciamento de banco de dados relacional.
 
 ---
 
