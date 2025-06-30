@@ -1,25 +1,23 @@
 // src/services/ProductService.ts
 import prisma from '../database/prisma';
 import { Product, Prisma } from '@prisma/client';
-// Importe as interfaces que acabamos de criar
 import { CreateProductData, UpdateProductData, ProductListFilters } from '../models/interface/productInterface';
-import { ProductGender, ProductType } from '@prisma/client'; // Ainda precisamos dos enums do Prisma
+import { ProductGender, ProductType } from '@prisma/client'; 
 
 
 class ProductService {
-  // Helper para aplicar a regra de negócio das variantes
+
   private filterVariantsByPriceTable(product: any): any | null {
     const filteredVariants = product.variants.filter((variant: any) => {
       if (!variant.skus || variant.skus.length === 0) {
-        return false; // Variantes sem SKUs não são válidas
+        return false; 
       }
 
-      // Verifica se todos os SKUs da variante estão vinculados à mesma tabela de preço
-      // Assume que cada SKU tem pelo menos uma entrada em price_tables_skus para ser válido
+
       const firstPriceTableId = variant.skus[0].price_tables_skus[0]?.price_table_id;
 
       if (firstPriceTableId === undefined) {
-        return false; // Se o primeiro SKU não tem tabela de preço, a variante é inválida
+        return false; 
       }
 
       const allSkusHaveSamePriceTable = variant.skus.every((sku: any) =>
@@ -31,7 +29,7 @@ class ProductService {
     });
 
     if (filteredVariants.length === 0) {
-      return null; // Se o produto não tem variantes válidas, ele não deve ser retornado
+      return null;
     }
 
     return {
@@ -47,7 +45,7 @@ class ProductService {
     const take = limit;
 
     const whereClause: Prisma.ProductWhereInput = {
-      deleted_at: null, // Apenas produtos não deletados
+      deleted_at: null, 
     };
 
     if (brand) {
@@ -56,32 +54,28 @@ class ProductService {
     if (category) {
       whereClause.category = { name: category };
     }
-    // Validação e atribuição para gender
     if (gender) {
       const validGender = Object.values(ProductGender).find(g => g === gender.toUpperCase());
       if (validGender) {
-        whereClause.gender = validGender as ProductGender; // <-- Correção aqui
+        whereClause.gender = validGender as ProductGender;
       } else {
-        // Opcional: Lançar um erro ou ignorar o filtro inválido
         console.warn(`Gênero inválido '${gender}' ignorado.`);
       }
     }
  if (promptDelivery !== undefined) {
-      // Apenas atribua se for um booleano válido (true ou false), ignorando null
+      
       if (promptDelivery === true || promptDelivery === false) {
         whereClause.prompt_delivery = promptDelivery;
       } else {
-        // Opcional: Logar ou lançar um erro se o valor for null (inválido para o filtro do Prisma)
+      
         console.warn(`Valor inválido para promptDelivery: ${promptDelivery}. Ignorando filtro.`);
       }
     }
-    // Validação e atribuição para type
     if (type) {
       const validType = Object.values(ProductType).find(t => t === type.toUpperCase());
       if (validType) {
-        whereClause.type = validType as ProductType; // <-- Correção aqui
+        whereClause.type = validType as ProductType; 
       } else {
-        // Opcional: Lançar um erro ou ignorar o filtro inválido
         console.warn(`Tipo de produto inválido '${type}' ignorado.`);
       }
     }
@@ -95,7 +89,7 @@ class ProductService {
           include: {
             skus: {
               include: {
-                price_tables_skus: true // Necessário para a regra de negócio
+                price_tables_skus: true 
               }
             }
           }
@@ -106,10 +100,10 @@ class ProductService {
       },
     });
 
-    // Aplicar a regra de negócio para cada produto
+   
     const filteredProducts = products
       .map(product => this.filterVariantsByPriceTable(product))
-      .filter(Boolean) as Product[]; // Remove produtos nulos
+      .filter(Boolean) as Product[];
 
     return filteredProducts;
   }
@@ -117,7 +111,7 @@ class ProductService {
   // GET /products/:id
   async getProductById(id: number): Promise<Product | null> {
     const product = await prisma.product.findUnique({
-      where: { id, deleted_at: null }, // Considera soft delete
+      where: { id, deleted_at: null },
       include: {
         variants: {
           include: {
@@ -138,13 +132,13 @@ class ProductService {
       return null;
     }
 
-    // Aplicar a regra de negócio para o produto individual
+   
     return this.filterVariantsByPriceTable(product);
   }
 
   // POST /products
     async createProduct(data: CreateProductData): Promise<Product> {
-    // Usar uma transação para garantir que todas as operações sejam atômicas
+   
     const newProduct = await prisma.$transaction(async (prisma) => {
       const product = await prisma.product.create({
         data: {
@@ -218,56 +212,37 @@ class ProductService {
   }
 
   // PUT /products/:id
-  async updateProduct(id: number, data: UpdateProductData): Promise<Product | null> {
-    // Esta é uma operação complexa. Você precisará decidir como lidar com:
-    // 1. Atualização de campos do produto.
-    // 2. Adição/remoção/atualização de variantes.
-    // 3. Adição/remoção/atualização de SKUs dentro das variantes.
-    // 4. Adição/remoção/atualização de price_tables_skus dentro dos SKUs.
-
-    // Uma abordagem comum é buscar o produto existente, comparar os dados,
-    // e então usar operações de `update`, `create` e `delete` aninhadas
-    // dentro de uma transação.
-
-    // Exemplo simplificado (apenas atualizando campos do produto principal):
+  async updateProduct(id: number, data: Partial<CreateProductData>): Promise<Product> {
+  try {
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: {
         name: data.name,
         reference: data.reference,
-        // ... outros campos do produto
-        updated_at: new Date(), // Atualiza o timestamp manualmente se @updatedAt não for suficiente
+        updated_at: new Date(),
       },
       include: {
         variants: {
           include: {
             skus: {
               include: {
-                price_tables_skus: true
-              }
-            }
-          }
+                price_tables_skus: true,
+              },
+            },
+          },
         },
-        brand: true,
-        category: true,
-        subcategory: true,
-      }
+      },
     });
-
-    // Para variantes e SKUs, você precisaria de lógica mais elaborada,
-    // como:
-    // - Deletar variantes/SKUs que não estão mais na entrada `data`.
-    // - Criar novas variantes/SKUs que estão na entrada `data` mas não no banco.
-    // - Atualizar variantes/SKUs existentes.
-
-    // Após a atualização, aplique a regra de negócio
-    return this.filterVariantsByPriceTable(updatedProduct);
+    return updatedProduct;
+  } catch (error) {
+    throw error;
   }
+}
 
   // DELETE /products/:id (Soft Delete)
   async deleteProduct(id: number): Promise<Product | null> {
     const product = await prisma.product.update({
-      where: { id, deleted_at: null }, // Garante que só deleta se não estiver já deletado
+      where: { id, deleted_at: null }, 
       data: {
         deleted_at: new Date(),
       },
@@ -275,7 +250,7 @@ class ProductService {
     return product;
   }
 
-  // GET /products/filters
+
   // GET /products/filters
   async getProductFilters(): Promise<any> {
     const brands = await prisma.brand.findMany({
@@ -285,7 +260,7 @@ class ProductService {
         _count: {
           select: {
             products: {
-              where: { deleted_at: null } // Contar apenas produtos não deletados
+              where: { deleted_at: null } 
             }
           }
         }
@@ -320,7 +295,6 @@ class ProductService {
       orderBy: { name: 'asc' }
     });
 
-    // Exemplo para genders e types (você pode adaptar para promptDelivery)
     const genders = await prisma.product.groupBy({
       by: ['gender'],
       _count: {
@@ -370,7 +344,7 @@ async getProductCount(filters: ProductListFilters): Promise<number> {
     const { brand, category, gender, promptDelivery, type } = filters;
 
     const whereClause: Prisma.ProductWhereInput = {
-      deleted_at: null, // Apenas produtos não deletados
+      deleted_at: null, 
     };
 
     if (brand) {
@@ -379,7 +353,6 @@ async getProductCount(filters: ProductListFilters): Promise<number> {
     if (category) {
       whereClause.category = { name: category };
     }
-    // Validação e atribuição para gender
     if (gender) {
       const validGender = Object.values(ProductGender).find(g => g === gender.toUpperCase());
       if (validGender) {
@@ -395,7 +368,6 @@ async getProductCount(filters: ProductListFilters): Promise<number> {
         console.warn(`Valor inválido para promptDelivery: ${promptDelivery}. Ignorando filtro para contagem.`);
       }
     }
-    // Validação e atribuição para type
     if (type) {
       const validType = Object.values(ProductType).find(t => t === type.toUpperCase());
       if (validType) {
@@ -417,7 +389,7 @@ async getProductCount(filters: ProductListFilters): Promise<number> {
     const products = await prisma.product.findMany({
       where: {
         deleted_at: {
-          not: null, // Apenas produtos com deleted_at preenchido
+          not: null, 
         },
       },
       include: {
@@ -444,7 +416,7 @@ async getProductCount(filters: ProductListFilters): Promise<number> {
       where: {
         id,
         deleted_at: {
-          not: null, // Apenas produtos com deleted_at preenchido
+          not: null, 
         },
       },
       include: {
@@ -466,7 +438,7 @@ async getProductCount(filters: ProductListFilters): Promise<number> {
   }
 }
 
-export default new ProductService(); // Exporta uma instância da classe
+export default new ProductService(); 
 
 
 

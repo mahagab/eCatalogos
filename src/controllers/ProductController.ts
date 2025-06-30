@@ -1,10 +1,17 @@
 // src/controllers/ProductController.ts
 import { Request, Response } from 'express';
 import ProductService from '../services/ProductService';
-import { isPositiveInteger, parseBoolean } from '../utils/validationUtils'; // Importe as funções utilitárias
-import { ProductListFilters } from '../models/interface/productInterface'; // Importe a interface de filtros
+import { isPositiveInteger, parseBoolean } from '../utils/validationUtils';
+import { ProductListFilters } from '../models/interface/productInterface'; 
 import { CreateProductData } from "../models/interface/productInterface";
 class ProductController {
+  private productService: typeof ProductService;
+  
+  constructor() {
+    this.productService = ProductService;
+  }
+  
+  
   // GET /products: Listar produtos com filtros, query params e paginação
   async listProducts(req: Request, res: Response): Promise<Response> {
     try {
@@ -20,7 +27,6 @@ class ProductController {
         type: type ? (type as string) : undefined, 
       };
 
-      // Validação básica dos filtros (exemplo)
       if (filters.page !== undefined && (!isPositiveInteger(filters.page) || filters.page < 1)) {
         return res.status(400).json({ status: 'error', message: 'O parâmetro page deve ser um número inteiro positivo.' });
       }
@@ -31,9 +37,7 @@ class ProductController {
       const products = await ProductService.listProducts(filters);
       return res.status(200).json(products);
     } catch (error) {
-      // O errorHandler.ts vai capturar isso, mas é bom ter um log aqui para depuração
       console.error('Erro ao listar produtos:', error);
-      // Não envie a resposta aqui, deixe o middleware de erro lidar com isso
       throw error; 
     }
   }
@@ -60,29 +64,36 @@ class ProductController {
     }
   }
 
-  // ... (mantenha os outros métodos como estão, por enquanto)
-
  // POST /products: Criar novo produto e suas variantes/skus
   async createProduct(req: Request, res: Response): Promise<Response> {
     try {
-      const productData: CreateProductData = req.body; // Assume que o corpo da requisição corresponde à interface
+      const productData: CreateProductData = req.body; 
        console.log("Dados recebidos no Controller:", JSON.stringify(productData, null, 2));
 
       const newProduct = await ProductService.createProduct(productData);
 
-      return res.status(201).json(newProduct); // Retorna 201 Created
+      return res.status(201).json(newProduct); 
     } catch (error) {
       console.error(`Erro ao criar produto:`, error);
-      throw error; // Deixe o middleware de erro lidar com isso
+      throw error; 
     }
   }
-  // PUT /products/:id: Atualizar produto (inclusive variantes/skus)
+  // PUT /products/:id: Atualizar produto
   async updateProduct(req: Request, res: Response): Promise<Response> {
-    // Lógica de validação e chamada ao service
-    return res.status(501).json({ message: 'Not Implemented' }); // <--- Adicione 'return'
+ try {
+    const id = Number(req.params.id);
+    const data = req.body;
+
+    const updatedProduct = await this.productService.updateProduct(id, data);
+
+    return res.status(200).json(updatedProduct);
+  } catch (error: any) {
+    console.error("Erro ao atualizar produto:", error);
+    return res.status(500).json({ error: error.message });
+  }
   }
 
-  // DELETE /products/:id: Soft delete → setar campo `deleted_at` com a data atual
+  // DELETE /products/:id: 
  async deleteProduct(req: Request, res: Response): Promise<Response> {
     try {
       const productId = parseInt(req.params.id, 10);
@@ -94,34 +105,32 @@ class ProductController {
       const deletedProduct = await ProductService.deleteProduct(productId);
 
       if (!deletedProduct) {
-        // Se o produto não foi encontrado ou já estava deletado
         return res.status(404).json({ status: 'error', message: 'Produto não encontrado ou já deletado.' });
       }
 
       return res.status(200).json({ status: 'success', message: 'Produto deletado com sucesso.', product: deletedProduct });
     } catch (error) {
       console.error(`Erro ao deletar produto com ID ${req.params.id}:`, error);
-      throw error; // Deixe o middleware de erro lidar com isso
+      throw error; 
     }
   }
 
-  // GET /products/filters: Retornar filtros (brands, types, genders, categories, promptDelivery)
+  // GET /products/filters
  async getProductFilters(req: Request, res: Response): Promise<Response> {
     try {
       const filtersData = await ProductService.getProductFilters();
       return res.status(200).json(filtersData);
     } catch (error) {
       console.error(`Erro ao obter dados de filtros:`, error);
-      throw error; // Deixe o middleware de erro lidar com isso
+      throw error;
     }
   }
 
-  // GET /products/count: Retornar apenas a contagem de produtos com base nos mesmos filtros
+  // GET /products/count
  async getProductCount(req: Request, res: Response): Promise<Response> {
     try {
       const { page, limit, brand, category, gender, promptDelivery, type } = req.query;
 
-      // Reutiliza a lógica de parse e validação de filtros do listProducts
       const filters: ProductListFilters = {
         page: page ? parseInt(page as string, 10) : undefined,
         limit: limit ? parseInt(limit as string, 10) : undefined,
@@ -132,7 +141,6 @@ class ProductController {
         type: type ? (type as string) : undefined,
       };
 
-      // Validação básica dos filtros (exemplo, pode ser mais robusta)
       if (filters.page !== undefined && (!isPositiveInteger(filters.page) || filters.page < 1)) {
         return res.status(400).json({ status: "error", message: "O parâmetro page deve ser um número inteiro positivo." });
       }
@@ -141,24 +149,29 @@ class ProductController {
       }
 
       const count = await ProductService.getProductCount(filters);
-      return res.status(200).json(count); // Retorna apenas o número da contagem
+      return res.status(200).json(count); 
     } catch (error) {
       console.error(`Erro ao obter contagem de produtos:`, error);
-      throw error; // Deixe o middleware de erro lidar com isso
+      throw error; 
     }
   }
 
-  // GET /products/deleted: Listagem de produtos deletados (soft deleted)
-  async listDeletedProducts(req: Request, res: Response): Promise<Response> {
-    // Lógica de validação e chamada ao service
-    return res.status(501).json({ message: 'Not Implemented' }); // <--- Adicione 'return'
-  }
+async listDeletedProducts(req: Request, res: Response): Promise<Response> {
+  const deletedProducts = await this.productService.listDeletedProducts();
+  return res.status(200).json(deletedProducts);
+}
 
-  // GET /products/deleted/:id: Buscar um único produto deletado pelo ID (soft deleted)
-  async getDeletedProductById(req: Request, res: Response): Promise<Response> {
-    // Lógica de validação e chamada ao service
-    return res.status(501).json({ message: 'Not Implemented' }); // <--- Adicione 'return'
+async getDeletedProductById(req: Request, res: Response): Promise<Response> {
+  const id = Number(req.params.id);
+  const product = await this.productService.getDeletedProductById(id);
+  if (!product) {
+    const error = new Error("Produto deletado não encontrado.");
+    (error as any).statusCode = 404;
+    throw error;
   }
+  return res.status(200).json(product);
+}
+
 }
 
 export default new ProductController();

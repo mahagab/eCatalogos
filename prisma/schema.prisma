@@ -9,6 +9,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Company {
+  id          Int          @id @default(autoincrement())
+  name        String       @db.VarChar(255)
+  products    Product[]
+  brands      Brand[]
+  categories  Category[]
+  priceTables PriceTable[]
+
+  @@map("companies")
+}
+
 model Brand {
   id                     Int       @id @default(autoincrement())
   name                   String    @unique(map: "brands_name_company_id_key") @db.VarChar(45)
@@ -24,9 +35,7 @@ model Brand {
   updated_at             DateTime? @updatedAt @db.DateTime(3)
   deleted_at             DateTime? @db.DateTime(3)
 
-  // address    Address? @relation(fields: [address_id], references: [id])
-  // business   Business @relation(fields: [business_id], references: [id])
-  // company    Company  @relation(fields: [company_id], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 
   products Product[]
 
@@ -39,8 +48,7 @@ model Category {
   created_at DateTime? @default(now()) @db.Timestamp(0)
   company_id Int
 
-  // Relação (assumindo que Company existe, mas não é mapeada aqui)
-  // company      Company        @relation(fields: [company_id], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 
   products      Product[]
   subcategories Subcategory[]
@@ -59,8 +67,7 @@ model PriceTable {
   deleted_at       DateTime? @db.Timestamp(0)
   company_id       Int
 
-  // Relação (assumindo que Company existe, mas não é mapeada aqui)
-  // company          Company            @relation(fields: [company_id], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 
   price_tables_skus PriceTableSku[]
 
@@ -114,9 +121,7 @@ model Product {
   category    Category     @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_categories_products")
   subcategory Subcategory? @relation(fields: [subcategory_id], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_subcategories_products")
 
-  // Relações (assumindo que Company e Deadline existem, mas não são mapeadas aqui)
-  // company     Company?     @relation(fields: [company_id], references: [id])
-  // deadline    Deadline?    @relation(fields: [deadline_id], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 
   variants Variant[]
 
